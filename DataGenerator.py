@@ -10,6 +10,8 @@ from keras.utils import to_categorical
 videos_dataset_path = 'olympic dataset'
 keypoints_dataset_path = 'output'
 annotation_path = 'annotation.csv'
+categories = ('non action', 'clean_and_jerk', 'snatch')
+category_count = len(categories)
 
 # annotation = pd.read_csv(annotation_path)
 
@@ -32,8 +34,11 @@ class Sample:
     def __init__(self, name, image, keypoints, label):
         self.name = name
         self.image = image
+        self.raw_keypoints = keypoints[:, :2]
         self.keypoints = normalize_keypoints(keypoints[:, :2])
         self.label = label
+    
+    
 
     @property
     def skeleton_image(self):
@@ -136,17 +141,16 @@ def load_actions(number_action, load_image=False):
     return actions
 
 
-def load_dataset(timestep_per_sample, stride=None, number_sample=100):
+def load_dataset(timestep_per_sample, stride=None, number_sample=100, load_image=False):
     if stride == None:
         stride = timestep_per_sample
 
-    actions = load_actions(number_sample)
+    actions = load_actions(number_sample, load_image=load_image)
     random.shuffle(actions)
     xs = []
     ys = []
-
     for action in actions:
-        for i in range(0, len(action.samples) - stride, stride):
+        for i in range(0, len(action.samples) - stride+1, stride):
             x = []
             y = []
             for sample in action.samples[i:i+timestep_per_sample]:
@@ -157,5 +161,5 @@ def load_dataset(timestep_per_sample, stride=None, number_sample=100):
 
     xs = np.array(xs)
     ys = np.array(ys)
-    ys = to_categorical(ys, 2,)
-    return xs, ys
+    ys = to_categorical(ys, category_count,)
+    return xs, ys, actions
