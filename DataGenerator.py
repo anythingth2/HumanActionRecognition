@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import random
 from functools import reduce
+from keras.utils import to_categorical
 
 videos_dataset_path = 'olympic dataset'
 keypoints_dataset_path = 'output'
@@ -15,8 +16,8 @@ annotation_path = 'annotation.csv'
 
 def normalize_keypoints(keypoints):
     xs, ys = keypoints.T
-    tmp_xs = xs[xs>0]
-    tmp_ys = ys[ys>0]
+    tmp_xs = xs[xs > 0]
+    tmp_ys = ys[ys > 0]
     if len(tmp_xs) == 0:
         return keypoints
 
@@ -31,9 +32,8 @@ class Sample:
     def __init__(self, name, image, keypoints, label):
         self.name = name
         self.image = image
-        self.keypoints = normalize_keypoints(keypoints[:,:2])
+        self.keypoints = normalize_keypoints(keypoints[:, :2])
         self.label = label
-
 
     @property
     def skeleton_image(self):
@@ -54,6 +54,21 @@ class HumanAction:
                 cv2.destroyWindow(sample.name)
                 break
             cv2.destroyWindow(sample.name)
+
+    @property
+    def keypoints(self):
+        output = []
+        for sample in self.samples:
+            output.append(sample.keypoints)
+        return output
+
+    @property
+    def labels(self):
+        output = []
+        for sample in self.samples:
+            output.append(sample.label)
+        return output
+
 # [
 #     {
 #         "class_name": "clean_and_jerk",
@@ -90,7 +105,7 @@ def load_actions(number_action, load_image=False):
                 keypoint_json = ujson.load(f)
 
             # ignore multiple people pose
-            
+
             # label = annotation[np.bitwise_and(np.bitwise_and(
             #     annotation.class_name == dirs[1], annotation.video_name == dirs[2]), annotation.image_name == img_name)]['label'].values[0]
 
@@ -101,13 +116,13 @@ def load_actions(number_action, load_image=False):
                 pose_keypoint = np.array(pose_keypoint).reshape((-1, 3))
 
                 samples.append(
-                    Sample(f'{vid_name}/{img_name}', frame, pose_keypoint,label))
+                    Sample(f'{vid_name}/{img_name}', frame, pose_keypoint, label))
 
             elif people_count == 0:
                 pose_keypoint = np.ones(
                     (75,), dtype='float32').reshape((-1, 3)) * -1
                 samples.append(
-                    Sample(f'{vid_name}/{img_name}', frame, pose_keypoint,label))
+                    Sample(f'{vid_name}/{img_name}', frame, pose_keypoint, label))
             else:
                 is_single_people = True
                 break
@@ -116,12 +131,28 @@ def load_actions(number_action, load_image=False):
     return actions
 
 
+def load_dataset(timestep_per_sample, stride=None, number_sample=100):
+    if stride == None:
+        stride = timestep_per_sample
 
-def load_dataset(timestep_per_sample,number_sample=100):
     actions = load_actions(number_sample)
     random.shuffle(actions)
-    xs = list(reduce(lambda a,b:a.append(b.keypoints), actions,initial=[]))
-    xs = np.array(xs)
-    return xs
+    xs = []
+    ys = []
 
-actions = load_actions(1000)
+    for action in actions:
+        random.shuffle(action.samples)
+        for i in range(0, len(action.samples) - stride, stride):
+            x = []
+            y = []
+            for sample in action.samples[i:i+timestep_per_sample]:
+                x.append(sample.keypoints.flatten())
+                y.append(sample.label)
+            xs.append(x)
+            ys.append(y)
+
+    xs = np.array(xs)
+    ys = np.array(ys)
+    ys = to_categorical(ys,2,)
+    return xs, ys
+
