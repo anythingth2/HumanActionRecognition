@@ -78,12 +78,12 @@ for _class in classes:
     vid_infos = []
     class_paths = glob.glob(f'{dataset_name}/{_class}/*')
     for index, vid_path in enumerate(class_paths):
-
         print(f'{index}/{len(class_paths)}'.center(20, '-'))
         annotations = glob.glob(f'{vid_path}/*.json')
         if len(annotations) > 0:
             with open(annotations[0], 'r') as f:
                 vid_info = ujson.load(f)
+
         else:
             vid_info = {'video_name': os.path.basename(vid_path)}
             vid_info['labels'] = mark_label(vid_path)
@@ -93,12 +93,16 @@ for _class in classes:
         dirs = vid_path.split('/')
         vid_name = dirs[1]+'/'+dirs[2]
         for index, label in enumerate(vid_info['labels']):
-            json_path =f'{keypoint_json_path}/{vid_name}/I{str(index).rjust(5,"0")}_keypoints.json'
-            with open(json_path,'r') as f:
+            json_path = f'{keypoint_json_path}/{vid_name}/I{str(index).rjust(5,"0")}_keypoints.json'
+
+            with open(json_path, 'r') as f:
                 keypoint_json = ujson.load(f)
+
+            if label['label'] != 0:
+                label['label'] = classes.index(_class)+1
             keypoint_json['label'] = label['label']
-            with open(json_path,'w') as f:
-                ujson.dump(keypoint_json,f)
+            with open(json_path, 'w') as f:
+                ujson.dump(keypoint_json, f)
 
         vid_infos.append(vid_info)
     obj.append({
