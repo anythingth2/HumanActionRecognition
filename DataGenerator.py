@@ -84,7 +84,12 @@ class HumanAction:
 
 def load_actions(number_action, load_image=False):
     actions = []
-    for vid_path in glob.glob(f'{keypoints_dataset_path}/*/*')[:number_action]:
+    vid_paths = glob.glob(f'{keypoints_dataset_path}/*/*')
+    random.shuffle(vid_paths)
+
+    if number_action == -1 or number_action > len(vid_paths):
+        number_action = len(vid_paths)
+    for vid_path in vid_paths[:number_action]:
         keypoint_paths = glob.glob(
             f'{vid_path}/*.json', recursive=True)
         keypoint_paths.sort()
@@ -106,10 +111,10 @@ def load_actions(number_action, load_image=False):
 
             # ignore multiple people pose
 
-            # label = annotation[np.bitwise_and(np.bitwise_and(
-            #     annotation.class_name == dirs[1], annotation.video_name == dirs[2]), annotation.image_name == img_name)]['label'].values[0]
-
-            label = keypoint_json['label']
+            if 'label' in keypoint_json:
+                label = keypoint_json['label']
+            else:
+                label = 0
             people_count = len(keypoint_json['people'])
             if people_count == 1:
                 pose_keypoint = keypoint_json['people'][0]['pose_keypoints_2d']
@@ -153,6 +158,5 @@ def load_dataset(timestep_per_sample, stride=None, number_sample=100):
 
     xs = np.array(xs)
     ys = np.array(ys)
-    ys = to_categorical(ys,2,)
+    ys = to_categorical(ys, 2,)
     return xs, ys
-
