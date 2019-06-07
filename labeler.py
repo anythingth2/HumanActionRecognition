@@ -8,6 +8,7 @@ import csv
 from functools import reduce
 
 dataset_name = 'olympic dataset'
+keypoint_json_path = 'output'
 classes = ['clean_and_jerk', 'snatch']
 obj = []
 class_vids = []
@@ -89,6 +90,16 @@ for _class in classes:
 
             with open(f'{vid_path}/annotation.json', 'w') as f:
                 ujson.dump(vid_info, f)
+        dirs = vid_path.split('/')
+        vid_name = dirs[1]+'/'+dirs[2]
+        for index, label in enumerate(vid_info['labels']):
+            json_path =f'{keypoint_json_path}/{vid_name}/I{str(index).rjust(5,"0")}_keypoints.json'
+            with open(json_path,'r') as f:
+                keypoint_json = ujson.load(f)
+            keypoint_json['label'] = label['label']
+            with open(json_path,'w') as f:
+                ujson.dump(keypoint_json,f)
+
         vid_infos.append(vid_info)
     obj.append({
         'class_name': _class,
@@ -100,7 +111,7 @@ with open('annotation.json', 'w') as f:
 with open('annotation.csv', 'w') as f:
     writer = csv.writer(f, delimiter=',', quotechar='"',
                         quoting=csv.QUOTE_MINIMAL)
-    writer.writerow(['class_name', 'video_name','image_name', 'label'])
+    writer.writerow(['class_name', 'video_name', 'image_name', 'label'])
 
     def encode_csv_row(info):
         rows = []
@@ -109,10 +120,11 @@ with open('annotation.csv', 'w') as f:
         for anno in annotations:
             video_name = anno['video_name']
             for label in anno['labels']:
-                rows.append([class_name, video_name, label['file_name'].split('.')[0],label['label']])
+                rows.append([class_name, video_name,
+                             label['file_name'].split('.')[0], label['label']])
         return rows
 
-    writer.writerows(reduce(lambda a,b:a+b,list(map(encode_csv_row, obj))))
+    writer.writerows(reduce(lambda a, b: a+b, list(map(encode_csv_row, obj))))
 # [
 #     {
 #         "class_name": "clean_and_jerk",

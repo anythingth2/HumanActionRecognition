@@ -3,18 +3,25 @@ import ujson
 import glob
 import numpy as np
 import pandas as pd
+import random
+from functools import reduce
 
 videos_dataset_path = 'olympic dataset'
 keypoints_dataset_path = 'output'
 annotation_path = 'annotation.csv'
 
-annotation = pd.read_csv(annotation_path)
+# annotation = pd.read_csv(annotation_path)
 
 
 def normalize_keypoints(keypoints):
     xs, ys = keypoints.T
-    xs = (xs - min(xs[xs > 0]))/(max(xs)-min(xs[xs > 0]))
-    ys = (ys - min(ys[ys > 0]))/(max(ys)-min(ys[ys > 0]))
+    tmp_xs = xs[xs>0]
+    tmp_ys = ys[ys>0]
+    if len(tmp_xs) == 0:
+        return keypoints
+
+    xs = (xs - min(tmp_xs))/(max(xs)-min(tmp_xs))
+    ys = (ys - min(tmp_ys))/(max(ys)-min(tmp_ys))
     keypoints = np.array([xs, ys]).T
     keypoints[keypoints < 0] = -1
     return keypoints
@@ -24,12 +31,9 @@ class Sample:
     def __init__(self, name, image, keypoints, label):
         self.name = name
         self.image = image
-        self._keypoints = keypoints
+        self.keypoints = normalize_keypoints(keypoints[:,:2])
         self.label = label
 
-    @property
-    def keypoints(self):
-        return self._keypoints[:, :2]
 
     @property
     def skeleton_image(self):
@@ -63,7 +67,7 @@ class HumanAction:
 #                     },
 
 
-def load(number_action, load_image=False):
+def load_actions(number_action, load_image=False):
     actions = []
     for vid_path in glob.glob(f'{keypoints_dataset_path}/*/*')[:number_action]:
         keypoint_paths = glob.glob(
@@ -86,8 +90,11 @@ def load(number_action, load_image=False):
                 keypoint_json = ujson.load(f)
 
             # ignore multiple people pose
-            label = annotation[np.bitwise_and(np.bitwise_and(
-                annotation.class_name == dirs[1], annotation.video_name == dirs[2]), annotation.image_name == img_name)]['label'].values[0]
+            
+            # label = annotation[np.bitwise_and(np.bitwise_and(
+            #     annotation.class_name == dirs[1], annotation.video_name == dirs[2]), annotation.image_name == img_name)]['label'].values[0]
+
+            label = keypoint_json['label']
             people_count = len(keypoint_json['people'])
             if people_count == 1:
                 pose_keypoint = keypoint_json['people'][0]['pose_keypoints_2d']
@@ -109,4 +116,12 @@ def load(number_action, load_image=False):
     return actions
 
 
-actions = load(10)
+
+def load_dataset(timestep_per_sample,number_sample=100):
+    actions = load_actions(number_sample)
+    random.shuffle(actions)
+    xs = list(reduce(lambda a,b:a.append(b.keypoints), actions,initial=[]))
+    xs = np.array(xs)
+    return xs
+
+actions = load_actions(1000)
