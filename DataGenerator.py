@@ -146,7 +146,6 @@ def load_dataset(timestep_per_sample, stride=None, number_sample=100):
     ys = []
 
     for action in actions:
-        random.shuffle(action.samples)
         for i in range(0, len(action.samples) - stride, stride):
             x = []
             y = []
