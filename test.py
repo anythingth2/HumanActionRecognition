@@ -6,9 +6,8 @@ import cv2
 from functools import reduce
 
 model = load_model('model.h5')
-x_test, y_test, actions = DataGenerator.load_dataset(
-    1, number_sample=100, load_image=True)
-
+x_test, y_test, actions = DataGenerator.load_test_dataset(load_image=True)
+len(actions)
 samples = []
 for action in actions:
     samples.extend(action.samples)

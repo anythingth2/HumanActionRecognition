@@ -10,11 +10,16 @@ from keras.utils import to_categorical
 videos_dataset_path = 'olympic dataset'
 keypoints_dataset_path = 'output'
 annotation_path = 'annotation.csv'
+enabled_datasets = ('basketball_layup', 'clean_and_jerk', 'snatch')
 categories = ('non action', 'clean_and_jerk', 'snatch')
+
 category_count = len(categories)
 
-# annotation = pd.read_csv(annotation_path)
+train_path = 'train_test_split/train'
+test_path = 'train_test_split/test'
 
+
+# annotation = pd.read_csv(annotation_path)
 
 def normalize_keypoints(keypoints):
     xs, ys = keypoints.T
@@ -37,8 +42,6 @@ class Sample:
         self.raw_keypoints = keypoints[:, :2]
         self.keypoints = normalize_keypoints(keypoints[:, :2])
         self.label = label
-    
-    
 
     @property
     def skeleton_image(self):
@@ -87,14 +90,23 @@ class HumanAction:
 #                     },
 
 
-def load_actions(number_action, load_image=False):
+'output/snatch/GLoKBmPQzDo_00196_00635/I00006_keypoints.json'
+
+
+def load_actions(number_action, load_image=False, specific_keypoint_paths=None):
     actions = []
-    vid_paths = glob.glob(f'{keypoints_dataset_path}/*/*')
+    if specific_keypoint_paths is None:
+        vid_paths = glob.glob(f'{keypoints_dataset_path}/*/*')
+        if not (number_action == -1 or number_action > len(vid_paths)):
+            vid_paths = vid_paths[:number_action]
+    else:
+        # vid_paths = []
+        # for path in specific_keypoint_paths:
+        #     vid_paths.extend(glob.glob(f'{path}/*'))
+        vid_paths = specific_keypoint_paths
     random.shuffle(vid_paths)
 
-    if number_action == -1 or number_action > len(vid_paths):
-        number_action = len(vid_paths)
-    for vid_path in vid_paths[:number_action]:
+    for vid_path in vid_paths:
         keypoint_paths = glob.glob(
             f'{vid_path}/*.json', recursive=True)
         keypoint_paths.sort()
@@ -136,16 +148,28 @@ def load_actions(number_action, load_image=False):
             else:
                 is_single_people = True
                 break
-        if not is_single_people:
+        if not is_single_people :
             actions.append(HumanAction(samples))
     return actions
 
 
-def load_dataset(timestep_per_sample, stride=None, number_sample=100, load_image=False):
+def load_dataset(timestep_per_sample, stride=None, number_sample=100, load_image=False, specify_dataset_paths=None):
     if stride == None:
         stride = timestep_per_sample
 
-    actions = load_actions(number_sample, load_image=load_image)
+    specify_keypoint_paths = None
+    
+    if specify_dataset_paths is not None:
+        specify_keypoint_paths = []
+        for dataset_name in enabled_datasets:
+            with open(f'{specify_dataset_paths}/{dataset_name}.txt', 'r') as f:
+                vid_names = f.read().splitlines()
+                specify_keypoint_paths.extend(
+                    [f'{keypoints_dataset_path}/{dataset_name}/{name}' for name in vid_names])
+    
+    actions = load_actions(number_sample, load_image=load_image,
+                           specific_keypoint_paths=specify_keypoint_paths)
+
     random.shuffle(actions)
     xs = []
     ys = []
@@ -163,3 +187,11 @@ def load_dataset(timestep_per_sample, stride=None, number_sample=100, load_image
     ys = np.array(ys)
     ys = to_categorical(ys, category_count,)
     return xs, ys, actions
+
+
+def load_train_dataset(timestep_per_sample=1,load_image=False):
+    return load_dataset(timestep_per_sample, specify_dataset_paths=train_path,load_image=load_image)
+
+
+def load_test_dataset(timestep_per_sample=1,load_image =False):
+    return load_dataset(timestep_per_sample, specify_dataset_paths=test_path,load_image=load_image)
